@@ -139,7 +139,7 @@ class RestoreDialogController extends GetxController {
       return;
     }
     _isFilePickerOpen = true;
-    final FilePickerResult? pickedFileResult;
+    FilePickerResult? pickedFileResult;
     try {
       pickedFileResult = await FilePicker.platform.pickFiles(
           dialogTitle: "Select backup file",

@@ -199,7 +199,7 @@ class BackupDialogController extends GetxController {
       return;
     }
     _isDirectoryPickerOpen = true;
-    final String? pickedFolderPath;
+    String? pickedFolderPath;
     try {
       pickedFolderPath = await FilePicker.platform
           .getDirectoryPath(dialogTitle: "Select backup file folder");
