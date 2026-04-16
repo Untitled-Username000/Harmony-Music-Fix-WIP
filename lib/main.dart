@@ -53,8 +53,6 @@ class MyApp extends StatelessWidget {
             disableAnimationsForTesting ? Transition.noTransition : Transition.native,
         transitionDuration:
             disableAnimationsForTesting ? Duration.zero : const Duration(milliseconds: 300),
-        themeAnimationDuration:
-            disableAnimationsForTesting ? Duration.zero : kThemeAnimationDuration,
         translations: Languages(),
         locale:
             Locale(Hive.box("AppPrefs").get('currentAppLanguageCode') ?? "en"),
