@@ -22,7 +22,8 @@ import 'ui/screens/Library/library_controller.dart';
 import 'utils/system_tray.dart';
 import 'utils/update_check_flag_file.dart';
 
-const bool disableAnimationsForTesting = true;
+const bool disableAnimationsForTesting =
+    bool.fromEnvironment('DISABLE_ANIMATIONS', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
