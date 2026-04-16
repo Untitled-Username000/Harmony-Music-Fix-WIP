@@ -81,8 +81,8 @@ jobs:
         working-directory: "${{ github.workspace }}/signed"
         run: |
           $rawKey = @'
-${{ secrets.KEY_PEM }}
-'@
+          ${{ secrets.KEY_PEM }}
+          '@
           $rawKey = $rawKey.Trim()
           try {
             $decodedBytes = [System.Convert]::FromBase64String($rawKey)
