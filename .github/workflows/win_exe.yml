@@ -155,5 +155,7 @@ ${{ secrets.KEY_PEM }}
         with:
           tag_name: "${{ steps.release_meta.outputs.tag_name }}"
           name: "${{ steps.release_meta.outputs.release_name }}"
+
+          
           prerelease: "${{ steps.release_meta.outputs.prerelease }}"
           files: "${{ steps.resolve_exe.outputs.exe_path }}"
