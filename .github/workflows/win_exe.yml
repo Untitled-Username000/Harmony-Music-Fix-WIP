@@ -1,5 +1,12 @@
 name: Build Windows exe 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
   
 jobs:
 
@@ -43,23 +50,26 @@ jobs:
           $exeFile = Get-ChildItem -Path "$($lastSubDir.FullName)/*.exe" | Select-Object -First 1
           if ($exeFile) {
               echo "Found .exe file: $($exeFile.FullName)"
-              echo "::set-output name=exe_path::$($exeFile.FullName)"
+              echo "exe_path=$($exeFile.FullName)" >> $env:GITHUB_OUTPUT
           } else {
               Write-Error "No .exe files found in the dist directory."
               exit 1
           }
           
       - name: Set up osslsigncode
+        if: ${{ secrets.KEY_PEM != '' }}
         run: |
           Invoke-WebRequest -Uri "https://github.com/mtrojnar/osslsigncode/releases/download/2.9/osslsigncode-2.9-windows-x64-mingw.zip" -OutFile "osslsigncode.zip"
           Expand-Archive -Path "osslsigncode.zip" -DestinationPath "osslsigncode"
           Add-Content -Path $env:GITHUB_PATH -Value "${{ github.workspace }}\osslsigncode"
       
       - name: Make signing dir
+        if: ${{ secrets.KEY_PEM != '' }}
         working-directory: "${{ github.workspace }}"
         run: mkdir signed
 
       - name: Collecting certs and key
+        if: ${{ secrets.KEY_PEM != '' }}
         working-directory: "${{ github.workspace }}/signed"
         run: |
           [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${{ secrets.KEY_PEM }}")) | Out-File -FilePath key.pem -Encoding ASCII
@@ -67,6 +77,7 @@ jobs:
           cp "${{ github.workspace }}/win_cert/cert.pem" .
 
       - name: Sign executable
+        if: ${{ secrets.KEY_PEM != '' }}
         working-directory: "${{ github.workspace }}/signed"
         run: |
           $exePath = "${{ steps.find_exe.outputs.exe_path }}"
@@ -74,13 +85,53 @@ jobs:
           & "${{ github.workspace }}/osslsigncode/bin/osslsigncode.exe" sign -certs cert.pem -key key.pem -t http://timestamp.digicert.com -in "$exePath" -out "$signedExePath"
 
       - name: Verify signature
+        if: ${{ secrets.KEY_PEM != '' }}
         working-directory: "${{ github.workspace }}/signed"
         run: |
           $signedExePath = "${{ steps.find_exe.outputs.exe_path }}".Replace(".exe", "_signed.exe")
           & "${{ github.workspace }}/osslsigncode/bin/osslsigncode.exe" verify -in "$signedExePath" -TSA-CAfile DigiCertGlobalRootCA.crt -CAfile cert.pem
+
+      - name: Resolve final exe path
+        id: resolve_exe
+        run: |
+          $signedExePath = "${{ steps.find_exe.outputs.exe_path }}".Replace(".exe", "_signed.exe")
+          if (Test-Path $signedExePath) {
+            echo "exe_path=$signedExePath" >> $env:GITHUB_OUTPUT
+            echo "asset_name=$(Split-Path $signedExePath -Leaf)" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "exe_path=${{ steps.find_exe.outputs.exe_path }}" >> $env:GITHUB_OUTPUT
+            echo "asset_name=$(Split-Path '${{ steps.find_exe.outputs.exe_path }}' -Leaf)" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Resolve release metadata
+        id: release_meta
+        run: |
+          $defaultTag = "${{ github.ref_name }}"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tagName = $defaultTag
+            $releaseName = $defaultTag
+            $isPreRelease = "false"
+          } else {
+            $versionLine = (Select-String -Path "${{ github.workspace }}/pubspec.yaml" -Pattern '^version:\s*').Line
+            $version = $versionLine.Split(':')[1].Trim().Split('+')[0]
+            $tagName = "v$version-windows.${{ github.run_number }}"
+            $releaseName = "Windows build v$version (${{ github.run_number }})"
+            $isPreRelease = "true"
+          }
+          echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          echo "release_name=$releaseName" >> $env:GITHUB_OUTPUT
+          echo "prerelease=$isPreRelease" >> $env:GITHUB_OUTPUT
           
       - name: Upload Windows exe artifact
         uses: actions/upload-artifact@v4
         with:
           name: Harmony music windows exe
-          path: "${{ github.workspace }}/dist/**/*signed.exe"
+          path: "${{ steps.resolve_exe.outputs.exe_path }}"
+
+      - name: Create GitHub release with exe
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ steps.release_meta.outputs.tag_name }}"
+          name: "${{ steps.release_meta.outputs.release_name }}"
+          prerelease: "${{ steps.release_meta.outputs.prerelease }}"
+          files: "${{ steps.resolve_exe.outputs.exe_path }}"
