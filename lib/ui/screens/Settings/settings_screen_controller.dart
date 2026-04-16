@@ -48,6 +48,8 @@ class SettingsScreenController extends GetxController {
   final restorePlaybackSession = false.obs;
   final cacheHomeScreenData = true.obs;
   final currentVersion = "V1.12.2";
+  bool _isExportDirectoryPickerOpen = false;
+  bool _isDownloadDirectoryPickerOpen = false;
 
   @override
   void onInit() {
@@ -187,33 +189,47 @@ class SettingsScreenController extends GetxController {
   }
 
   Future<void> setExportedLocation() async {
+    if (_isExportDirectoryPickerOpen) {
+      return;
+    }
     if (!await PermissionService.getExtStoragePermission()) {
       return;
     }
+    _isExportDirectoryPickerOpen = true;
+    try {
+      final String? pickedFolderPath = await FilePicker.platform
+          .getDirectoryPath(dialogTitle: "Select export file folder");
+      if (pickedFolderPath == '/' || pickedFolderPath == null) {
+        return;
+      }
 
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select export file folder");
-    if (pickedFolderPath == '/' || pickedFolderPath == null) {
-      return;
+      setBox.put("exportLocationPath", pickedFolderPath);
+      exportLocationPath.value = pickedFolderPath;
+    } finally {
+      _isExportDirectoryPickerOpen = false;
     }
-
-    setBox.put("exportLocationPath", pickedFolderPath);
-    exportLocationPath.value = pickedFolderPath;
   }
 
   Future<void> setDownloadLocation() async {
+    if (_isDownloadDirectoryPickerOpen) {
+      return;
+    }
     if (!await PermissionService.getExtStoragePermission()) {
       return;
     }
+    _isDownloadDirectoryPickerOpen = true;
+    try {
+      final String? pickedFolderPath = await FilePicker.platform
+          .getDirectoryPath(dialogTitle: "Select downloads folder");
+      if (pickedFolderPath == '/' || pickedFolderPath == null) {
+        return;
+      }
 
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select downloads folder");
-    if (pickedFolderPath == '/' || pickedFolderPath == null) {
-      return;
+      setBox.put("downloadLocationPath", pickedFolderPath);
+      downloadLocationPath.value = pickedFolderPath;
+    } finally {
+      _isDownloadDirectoryPickerOpen = false;
     }
-
-    setBox.put("downloadLocationPath", pickedFolderPath);
-    downloadLocationPath.value = pickedFolderPath;
   }
 
   void disableTransitionAnimation(bool val) {
