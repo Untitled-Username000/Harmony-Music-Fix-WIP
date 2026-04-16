@@ -58,10 +58,32 @@ jobs:
       - name: Expose signing key presence
         shell: pwsh
         run: |
-          if ("${{ secrets.KEY_PEM }}" -ne "") {
+          $rawKey = @'
+          ${{ secrets.KEY_PEM }}
+          '@
+          $rawKey = $rawKey.Trim()
+
+          $hasPemHeader = $rawKey -match "-----BEGIN .*PRIVATE KEY-----"
+          $decodedHasPemHeader = $false
+
+          if (-not $hasPemHeader -and $rawKey -ne "") {
+            try {
+              $decodedKey = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($rawKey)).Trim()
+              if ($decodedKey -match "-----BEGIN .*PRIVATE KEY-----") {
+                $decodedHasPemHeader = $true
+              }
+            } catch {
+              # Not valid base64; treat as not signable.
+            }
+          }
+
+          if ($hasPemHeader -or $decodedHasPemHeader) {
             "KEY_PEM_PRESENT=true" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           } else {
             "KEY_PEM_PRESENT=false" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            if ($rawKey -ne "") {
+              Write-Host "KEY_PEM is set but not in PEM/base64-PEM format. Skipping signing."
+            }
           }
 
       - name: Set up osslsigncode
