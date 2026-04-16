@@ -112,9 +112,7 @@ class CloseWindowListener extends WindowListener {
   @override
   Future<void> onWindowClose() async {
     final settingsScrnController = Get.find<SettingsScreenController>();
-    if (settingsScrnController.backgroundPlayEnabled.isTrue &&
-        Get.find<PlayerController>().buttonState.value ==
-            PlayButtonState.playing) {
+    if (settingsScrnController.backgroundPlayEnabled.isTrue) {
       await windowManager.hide();
     } else {
       await Get.find<AudioHandler>().customAction("saveSession");

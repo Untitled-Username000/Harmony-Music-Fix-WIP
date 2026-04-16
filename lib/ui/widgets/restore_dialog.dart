@@ -129,22 +129,26 @@ class RestoreDialogController extends GetxController {
   final restoreProgress = (-1).obs;
   final filesToRestore = (0).obs;
   final processingFiles = false.obs;
+  bool _isFilePickerOpen = false;
 
   Future<void> restore() async {
+    if (_isFilePickerOpen || processingFiles.isTrue || restoreRunning.isTrue) {
+      return;
+    }
     if (!await PermissionService.getExtStoragePermission()) {
       return;
     }
-
-    if (!await PermissionService.getExtStoragePermission()) {
-      return;
+    _isFilePickerOpen = true;
+    FilePickerResult? pickedFileResult;
+    try {
+      pickedFileResult = await FilePicker.platform.pickFiles(
+          dialogTitle: "Select backup file",
+          type: GetPlatform.isWindows ? FileType.custom : FileType.any,
+          allowedExtensions: GetPlatform.isWindows ? ['hmb'] : null,
+          allowMultiple: false);
+    } finally {
+      _isFilePickerOpen = false;
     }
-
-    final FilePickerResult? pickedFileResult = await FilePicker.platform
-        .pickFiles(
-            dialogTitle: "Select backup file",
-            type: GetPlatform.isWindows ? FileType.custom : FileType.any,
-            allowedExtensions: GetPlatform.isWindows ? ['hmb'] : null,
-            allowMultiple: false);
 
     final String? pickedFile = pickedFileResult?.files.first.path;
 
@@ -153,7 +157,6 @@ class RestoreDialogController extends GetxController {
       return;
     }
     processingFiles.value = true;
-    await Future.delayed(const Duration(seconds: 4));
     final restoreFilePath = pickedFile.toString();
     final supportDirPath = Get.find<SettingsScreenController>().supportDirPath;
     final dbDirPath = await Get.find<SettingsScreenController>().dbDir;

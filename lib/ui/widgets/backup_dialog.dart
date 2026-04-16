@@ -170,6 +170,7 @@ class BackupDialogController extends GetxController {
   final isDownloadedfilesSeclected = false.obs;
   List<String> filesToExport = [];
   final supportDirPath = Get.find<SettingsScreenController>().supportDirPath;
+  bool _isDirectoryPickerOpen = false;
 
   Future<void> scanFilesToBackup() async {
     final dbDir = await Get.find<SettingsScreenController>().dbDir;
@@ -191,22 +192,25 @@ class BackupDialogController extends GetxController {
   }
 
   Future<void> backup() async {
+    if (_isDirectoryPickerOpen || scanning.isTrue || backupRunning.isTrue) {
+      return;
+    }
     if (!await PermissionService.getExtStoragePermission()) {
       return;
     }
-
-    if (!await PermissionService.getExtStoragePermission()) {
-      return;
+    _isDirectoryPickerOpen = true;
+    String? pickedFolderPath;
+    try {
+      pickedFolderPath = await FilePicker.platform
+          .getDirectoryPath(dialogTitle: "Select backup file folder");
+    } finally {
+      _isDirectoryPickerOpen = false;
     }
-
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select backup file folder");
     if (pickedFolderPath == '/' || pickedFolderPath == null) {
       return;
     }
 
     scanning.value = true;
-    await Future.delayed(const Duration(seconds: 4));
     await scanFilesToBackup();
     scanning.value = false;
 
