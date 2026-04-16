@@ -22,6 +22,8 @@ import 'ui/screens/Library/library_controller.dart';
 import 'utils/system_tray.dart';
 import 'utils/update_check_flag_file.dart';
 
+const bool disableAnimationsForTesting = true;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
@@ -46,6 +48,12 @@ class MyApp extends StatelessWidget {
         title: 'Harmony Music',
         home: const Home(),
         debugShowCheckedModeBanner: false,
+        defaultTransition:
+            disableAnimationsForTesting ? Transition.noTransition : Transition.native,
+        transitionDuration:
+            disableAnimationsForTesting ? Duration.zero : const Duration(milliseconds: 300),
+        themeAnimationDuration:
+            disableAnimationsForTesting ? Duration.zero : kThemeAnimationDuration,
         translations: Languages(),
         locale:
             Locale(Hive.box("AppPrefs").get('currentAppLanguageCode') ?? "en"),
@@ -58,9 +66,13 @@ class MyApp extends StatelessWidget {
             children: [
               GetX<ThemeController>(
                 builder: (controller) => MediaQuery(
-                  data: mQuery.copyWith(textScaler: scale),
+                  data: mQuery.copyWith(
+                      textScaler: scale,
+                      disableAnimations: disableAnimationsForTesting),
                   child: AnimatedTheme(
-                      duration: const Duration(milliseconds: 700),
+                      duration: disableAnimationsForTesting
+                          ? Duration.zero
+                          : const Duration(milliseconds: 700),
                       data: controller.themedata.value!,
                       child: child!),
                 ),

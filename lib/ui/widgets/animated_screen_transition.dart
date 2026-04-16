@@ -15,7 +15,7 @@ class AnimatedScreenTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!enabled) return child;
+    if (!enabled || MediaQuery.disableAnimationsOf(context)) return child;
     Tween<Offset> forwardTween;
     Tween<Offset> reverseTween;
     if (horizontalTransition) {
