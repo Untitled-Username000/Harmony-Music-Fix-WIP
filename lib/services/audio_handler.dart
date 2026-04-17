@@ -60,6 +60,10 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
   bool loudnessNormalizationEnabled = false;
   // var networkErrorPause = false;
   bool isSongLoading = true;
+  int _playByIndexRequestId = 0;
+  String? _lastRetrySongId;
+  int _retryCountForSong = 0;
+  static const int _maxRefreshUrlRetries = 1;
 
   // list of shuffled queue songs ids
   List<String> shuffledQueue = [];
@@ -168,30 +172,54 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         printERROR('Error message: ${e.message}');
       } else {
         printERROR('An error occurred: $e');
-        Duration curPos = _player.position;
-        await _player.stop();
-
-        if (isPlayingUsingLockCachingSource &&
-            e.toString().contains("Connection closed while receiving data")) {
-          await _player.seek(curPos, index: 0);
-          await _player.play();
-          return;
-        }
-
-        //Workaround when 403 error encountered
-        // customAction("playByIndex", {'index': currentIndex, 'newUrl': true})
-        //     .whenComplete(() async {
-        //   await _player.stop();
-        //   if (currentSongUrl == null) {
-        //     networkErrorPause = true;
-        //   } else {
-        //     _player.play();
-        //   }
-        // });
-        customAction("playByIndex", {'index': currentIndex, 'newUrl': true});
-        await _player.seek(curPos, index: 0);
       }
+      final curPos = _player.position;
+      await _player.stop();
+
+      if (isPlayingUsingLockCachingSource &&
+          e.toString().contains("Connection closed while receiving data")) {
+        await _player.seek(curPos, index: 0);
+        await _player.play();
+        return;
+      }
+
+      await _retryCurrentSongWithNewUrl();
     });
+  }
+
+  void _setPlaybackErrorState(String message, {int code = 500}) {
+    currentSongUrl = null;
+    isSongLoading = false;
+    if (Get.isRegistered<PlayerController>()) {
+      Get.find<PlayerController>().notifyPlayError(message);
+    }
+    playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.error,
+        errorCode: code,
+        errorMessage: message));
+  }
+
+  Future<void> _retryCurrentSongWithNewUrl() async {
+    if (currentIndex == null ||
+        queue.value.isEmpty ||
+        currentIndex < 0 ||
+        currentIndex >= queue.value.length) {
+      _setPlaybackErrorState("Unknown error occurred");
+      return;
+    }
+    final songId = queue.value[currentIndex].id;
+    if (_lastRetrySongId != songId) {
+      _lastRetrySongId = songId;
+      _retryCountForSong = 0;
+    }
+
+    if (_retryCountForSong >= _maxRefreshUrlRetries) {
+      _setPlaybackErrorState("Unknown error occurred");
+      return;
+    }
+
+    _retryCountForSong++;
+    await customAction("playByIndex", {'index': currentIndex, 'newUrl': true});
   }
 
   void _listenToPlaybackForNextSong() {
@@ -452,60 +480,75 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
       case 'playByIndex':
         final songIndex = extras!['index'];
+        final requestId = ++_playByIndexRequestId;
         currentIndex = songIndex;
         final isNewUrlReq = extras['newUrl'] ?? false;
-        final currentSong = queue.value[currentIndex];
-        final futureStreamInfo =
-            checkNGetUrl(currentSong.id, generateNewUrl: isNewUrlReq);
         final bool restoreSession = extras['restoreSession'] ?? false;
         isSongLoading = true;
         playbackState.add(playbackState.value
             .copyWith(processingState: AudioProcessingState.loading));
-        if (_playList.children.isNotEmpty) {
-          await _playList.clear();
-        }
-
-        mediaItem.add(currentSong);
-        final streamInfo = await futureStreamInfo;
-        if (songIndex != currentIndex) {
-          return;
-        } else if (!streamInfo.playable) {
-          currentSongUrl = null;
-          isSongLoading = false;
-          Get.find<PlayerController>().notifyPlayError(streamInfo.statusMSG);
-          playbackState.add(playbackState.value.copyWith(
-              processingState: AudioProcessingState.error,
-              errorCode: 404,
-              errorMessage: streamInfo.statusMSG));
-          return;
-        }
-        currentSongUrl = currentSong.extras!['url'] = streamInfo.audio!.url;
-        playbackState
-            .add(playbackState.value.copyWith(queueIndex: currentIndex));
-        await _playList.add(_createAudioSource(currentSong));
-
-        isSongLoading = false;
-        if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
-          _normalizeVolume(streamInfo.audio!.loudnessDb);
-        }
-
-        if (restoreSession) {
-          if (!GetPlatform.isDesktop) {
-            final position = extras['position'];
-            await _player.load();
-            await _player.seek(
-              Duration(
-                milliseconds: position,
-              ),
-            );
-            await _player.seek(
-              Duration(
-                milliseconds: position,
-              ),
-            );
+        try {
+          if (songIndex < 0 || songIndex >= queue.value.length) {
+            _setPlaybackErrorState("Unknown error occurred", code: 400);
+            break;
           }
-        } else {
-          await _player.play();
+
+          final currentSong = queue.value[currentIndex];
+          final futureStreamInfo =
+              checkNGetUrl(currentSong.id, generateNewUrl: isNewUrlReq);
+
+          if (_playList.children.isNotEmpty) {
+            await _playList.clear();
+          }
+          mediaItem.add(currentSong);
+
+          final streamInfo = await futureStreamInfo;
+          if (requestId != _playByIndexRequestId) {
+            return;
+          }
+
+          if (!streamInfo.playable || streamInfo.audio == null) {
+            _setPlaybackErrorState(streamInfo.statusMSG, code: 404);
+            return;
+          }
+
+          currentSongUrl = currentSong.extras!['url'] = streamInfo.audio!.url;
+          playbackState
+              .add(playbackState.value.copyWith(queueIndex: currentIndex));
+          await _playList.add(_createAudioSource(currentSong));
+
+          if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
+            _normalizeVolume(streamInfo.audio!.loudnessDb);
+          }
+
+          if (restoreSession) {
+            if (!GetPlatform.isDesktop) {
+              final position = extras['position'];
+              await _player.load();
+              await _player.seek(
+                Duration(
+                  milliseconds: position,
+                ),
+              );
+              await _player.seek(
+                Duration(
+                  milliseconds: position,
+                ),
+              );
+            }
+          } else {
+            await _player.play();
+          }
+          _retryCountForSong = 0;
+          _lastRetrySongId = currentSong.id;
+        } catch (e) {
+          if (requestId == _playByIndexRequestId) {
+            _setPlaybackErrorState("Unknown error occurred");
+          }
+        } finally {
+          if (requestId == _playByIndexRequestId) {
+            isSongLoading = false;
+          }
         }
         break;
 
