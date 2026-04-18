@@ -111,6 +111,7 @@ class PlayerController extends GetxController
     _listenForPlaylistChange();
     _listenForKeyboardActivity();
     _setInitLyricsMode();
+    _syncFromAudioHandlerState();
     final appPrefs = Hive.box("AppPrefs");
     isLoopModeEnabled.value = appPrefs.get("isLoopModeEnabled") ?? false;
     isShuffleModeEnabled.value = appPrefs.get("isShuffleModeEnabled") ?? false;
@@ -173,16 +174,7 @@ class PlayerController extends GetxController
   void _listenForChangesInPlayerState() {
     _audioHandler.playbackState.listen((playerState) {
       final isPlaying = playerState.playing;
-      final processingState = playerState.processingState;
-      if (processingState == AudioProcessingState.loading) {
-        buttonState.value = PlayButtonState.loading;
-      } else if (processingState == AudioProcessingState.buffering) {
-        buttonState.value = PlayButtonState.loading;
-      } else if (!isPlaying || processingState == AudioProcessingState.error) {
-        buttonState.value = PlayButtonState.paused;
-      } else if (processingState != AudioProcessingState.completed) {
-        buttonState.value = PlayButtonState.playing;
-      } else {
+      if (_setButtonStateFromPlaybackState(playerState)) {
         _audioHandler.seek(Duration.zero);
         _audioHandler.pause();
       }
@@ -192,6 +184,40 @@ class PlayerController extends GetxController
       final shouldEnable = settings.keepScreenAwake.isTrue && isPlaying;
       _setWakelock(shouldEnable);
     });
+  }
+
+  bool _setButtonStateFromPlaybackState(PlaybackState playerState) {
+    final isPlaying = playerState.playing;
+    final processingState = playerState.processingState;
+    if (processingState == AudioProcessingState.loading ||
+        processingState == AudioProcessingState.buffering) {
+      buttonState.value = PlayButtonState.loading;
+    } else if (!isPlaying || processingState == AudioProcessingState.error) {
+      buttonState.value = PlayButtonState.paused;
+    } else if (processingState != AudioProcessingState.completed) {
+      buttonState.value = PlayButtonState.playing;
+    } else {
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _syncFromAudioHandlerState() async {
+    final currentPlaybackState = _audioHandler.playbackState.value;
+    final currentMediaItem = _audioHandler.mediaItem.value;
+    currentQueue.value = List<MediaItem>.from(_audioHandler.queue.value);
+    _setButtonStateFromPlaybackState(currentPlaybackState);
+    progressBarStatus.update((val) {
+      val!.current = currentPlaybackState.updatePosition;
+      val.buffered = currentPlaybackState.bufferedPosition;
+      val.total = currentMediaItem?.duration ?? Duration.zero;
+    });
+    if (currentMediaItem != null) {
+      currentSong.value = currentMediaItem;
+      currentSongIndex.value =
+          currentQueue.indexWhere((element) => element.id == currentMediaItem.id);
+      await _checkFav();
+    }
   }
 
   void _setWakelock(bool enable) {
@@ -837,7 +863,6 @@ class PlayerController extends GetxController
 
   @override
   void dispose() {
-    _audioHandler.customAction('dispose');
     keyboardSubscription.cancel();
     scrollController.dispose();
     gesturePlayerStateAnimationController?.dispose();
