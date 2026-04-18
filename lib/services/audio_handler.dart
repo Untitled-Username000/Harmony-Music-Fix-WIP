@@ -61,9 +61,14 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
   // var networkErrorPause = false;
   bool isSongLoading = true;
   int _playByIndexRequestId = 0;
+  int _setSourceNPlayRequestId = 0;
   String? _lastRetrySongId;
   int _retryCountForSong = 0;
   static const int _maxRefreshUrlRetries = 1;
+
+  // Guard flag to prevent the position stream from firing _triggerNext
+  // multiple times for the same song end event.
+  bool _nextTriggered = false;
 
   // list of shuffled queue songs ids
   List<String> shuffledQueue = [];
@@ -232,6 +237,10 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
       if (_player.duration != null && _player.duration?.inSeconds != 0) {
         if (value.inMilliseconds >=
             (_player.duration!.inMilliseconds - playerDurationOffset)) {
+          // Guard: only trigger once per song to avoid flooding playByIndex
+          // from the high-frequency position stream.
+          if (_nextTriggered) return;
+          _nextTriggered = true;
           await _triggerNext();
         }
       }
@@ -261,7 +270,7 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
       final currQueue = queue.value;
       if (currentIndex == null || currQueue.isEmpty || duration == null) return;
       final currentSong = queue.value[currentIndex];
-      if (currentSong.duration == null || currentIndex == 0) {
+      if (currentSong.duration == null) {
         final newMediaItem = currentSong.copyWith(duration: duration);
         mediaItem.add(newMediaItem);
       }
@@ -276,9 +285,11 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
     if (shuffleModeEnabled) {
       final mediaItemsIds = mediaItems.toList().map((item) => item.id).toList();
+      // Always create a new list copy (never alias shuffledQueue directly)
+      // to avoid mutating the source while iterating via replaceRange.
       final notPlayedshuffledQueue = shuffledQueue.isNotEmpty
           ? shuffledQueue.toList().sublist(currentShuffleIndex + 1)
-          : shuffledQueue;
+          : <String>[];
       notPlayedshuffledQueue.addAll(mediaItemsIds);
       notPlayedshuffledQueue.shuffle();
       shuffledQueue.replaceRange(
@@ -351,10 +362,17 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
   @override
   Future<void> play() async {
+    // If a song is already being loaded, do not re-trigger playByIndex — it
+    // would cancel the in-progress fetch (by advancing _playByIndexRequestId)
+    // and clear the audio source that is being prepared, creating a
+    // re-entrancy loop especially on Desktop.
+    if (isSongLoading) return;
+
     if (currentSongUrl == null ||
         (GetPlatform.isDesktop &&
             (_player.duration == null ||
                 _player.duration?.inMilliseconds == 0))) {
+      if (currentIndex == null) return;
       await customAction("playByIndex", {'index': currentIndex});
       return;
     }
@@ -392,8 +410,11 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
       } else {
         currentShuffleIndex += 1;
       }
-      return queue.value
+      final idx = queue.value
           .indexWhere((item) => item.id == shuffledQueue[currentShuffleIndex]);
+      // If the shuffled ID was removed from the queue, fall back to the
+      // current index so the caller treats it as "end of queue".
+      return idx < 0 ? currentIndex as int : idx;
     }
 
     if (queue.value.length > currentIndex + 1) {
@@ -413,8 +434,11 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
       } else {
         currentShuffleIndex -= 1;
       }
-      return queue.value
+      final idx = queue.value
           .indexWhere((item) => item.id == shuffledQueue[currentShuffleIndex]);
+      // If the shuffled ID was removed from the queue, fall back to the
+      // current index so the caller treats it as "already at start".
+      return idx < 0 ? currentIndex as int : idx;
     }
 
     if (currentIndex - 1 >= 0) {
@@ -484,6 +508,8 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         currentIndex = songIndex;
         final isNewUrlReq = extras['newUrl'] ?? false;
         final bool restoreSession = extras['restoreSession'] ?? false;
+        // Reset the end-of-song debounce guard for each new song request.
+        _nextTriggered = false;
         isSongLoading = true;
         playbackState.add(playbackState.value
             .copyWith(processingState: AudioProcessingState.loading));
@@ -586,13 +612,20 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
       case 'setSourceNPlay':
         final currMed = (extras!['mediaItem'] as MediaItem);
+        final ssnpRequestId = ++_setSourceNPlayRequestId;
+        // Also advance playByIndex request ID so any stale playByIndex
+        // fetch started before this point will be discarded.
+        ++_playByIndexRequestId;
         final futureStreamInfo = checkNGetUrl(currMed.id);
         isSongLoading = true;
+        _nextTriggered = false;
         currentIndex = 0;
         await _playList.clear();
         mediaItem.add(currMed);
         queue.add([currMed]);
         final streamInfo = (await futureStreamInfo);
+        // Discard if a newer setSourceNPlay or playByIndex has superseded this.
+        if (ssnpRequestId != _setSourceNPlayRequestId) break;
         if (!streamInfo.playable) {
           currentSongUrl = null;
           isSongLoading = false;
