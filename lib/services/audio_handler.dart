@@ -616,35 +616,42 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         // Also advance playByIndex request ID so any stale playByIndex
         // fetch started before this point will be discarded.
         ++_playByIndexRequestId;
-        final futureStreamInfo = checkNGetUrl(currMed.id);
         isSongLoading = true;
+        playbackState.add(playbackState.value
+            .copyWith(processingState: AudioProcessingState.loading));
         _nextTriggered = false;
         currentIndex = 0;
-        await _playList.clear();
-        mediaItem.add(currMed);
-        queue.add([currMed]);
-        final streamInfo = (await futureStreamInfo);
-        // Discard if a newer setSourceNPlay or playByIndex has superseded this.
-        if (ssnpRequestId != _setSourceNPlayRequestId) break;
-        if (!streamInfo.playable) {
-          currentSongUrl = null;
-          isSongLoading = false;
-          Get.find<PlayerController>().notifyPlayError(streamInfo.statusMSG);
-          playbackState.add(playbackState.value
-              .copyWith(processingState: AudioProcessingState.error));
-          return;
+        try {
+          final futureStreamInfo = checkNGetUrl(currMed.id);
+          await _playList.clear();
+          mediaItem.add(currMed);
+          queue.add([currMed]);
+          final streamInfo = (await futureStreamInfo);
+          // Discard if a newer setSourceNPlay or playByIndex has superseded this.
+          if (ssnpRequestId != _setSourceNPlayRequestId) break;
+          if (!streamInfo.playable || streamInfo.audio == null) {
+            _setPlaybackErrorState(streamInfo.statusMSG, code: 404);
+            return;
+          }
+          currentSongUrl = currMed.extras!['url'] = streamInfo.audio!.url;
+
+          await _playList.add(_createAudioSource(currMed));
+
+          // Normalize audio
+          if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
+            _normalizeVolume(streamInfo.audio!.loudnessDb);
+          }
+
+          await _player.play();
+        } catch (e) {
+          if (ssnpRequestId == _setSourceNPlayRequestId) {
+            _setPlaybackErrorState("Unknown error occurred");
+          }
+        } finally {
+          if (ssnpRequestId == _setSourceNPlayRequestId) {
+            isSongLoading = false;
+          }
         }
-        currentSongUrl = currMed.extras!['url'] = streamInfo.audio!.url;
-
-        await _playList.add(_createAudioSource(currMed));
-        isSongLoading = false;
-
-        // Normalize audio
-        if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
-          _normalizeVolume(streamInfo.audio!.loudnessDb);
-        }
-
-        await _player.play();
         break;
 
       case 'toggleSkipSilence':
