@@ -689,8 +689,18 @@ String? getSearchResultType(
   if (resultTypeLocal == null) {
     return null;
   }
-  List<String> resultTypes = ['artist', 'playlist', 'song', 'video', 'station'];
   resultTypeLocal = resultTypeLocal.toLowerCase();
+
+  if (!resultTypesLocal.contains(resultTypeLocal) &&
+      resultTypeLocal.endsWith('s')) {
+    final singularResultType =
+        resultTypeLocal.substring(0, resultTypeLocal.length - 1);
+    if (resultTypesLocal.contains(singularResultType)) {
+      resultTypeLocal = singularResultType;
+    }
+  }
+
+  List<String> resultTypes = ['artist', 'playlist', 'song', 'video', 'station'];
   if (!resultTypesLocal.contains(resultTypeLocal)) {
     return 'album';
   } else {
@@ -801,7 +811,9 @@ dynamic parseSearchResult(Map<String, dynamic> data,
   }
   if ((['song', 'video']).contains(resultType)) {
     searchResult['videoId'] = nav(data,
-        [...play_button, 'playNavigationEndpoint', 'watchEndpoint', 'videoId']);
+            [...play_button, 'playNavigationEndpoint', 'watchEndpoint', 'videoId']) ??
+        nav(data, navigation_video_id) ??
+        nav(data, navigation_browse_id);
     searchResult['videoType'] = videoType;
   }
 

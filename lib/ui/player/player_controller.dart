@@ -189,16 +189,27 @@ class PlayerController extends GetxController
   bool _setButtonStateFromPlaybackState(PlaybackState playerState) {
     final isPlaying = playerState.playing;
     final processingState = playerState.processingState;
-    if (processingState == AudioProcessingState.loading ||
-        (processingState == AudioProcessingState.buffering && isPlaying)) {
-      buttonState.value = PlayButtonState.loading;
-    } else if (!isPlaying || processingState == AudioProcessingState.error) {
-      buttonState.value = PlayButtonState.paused;
-    } else if (processingState != AudioProcessingState.completed) {
-      buttonState.value = PlayButtonState.playing;
-    } else {
+    if (processingState == AudioProcessingState.completed) {
       return true;
     }
+
+    if (processingState == AudioProcessingState.error) {
+      buttonState.value = PlayButtonState.paused;
+      return false;
+    }
+
+    if (isPlaying) {
+      buttonState.value = PlayButtonState.playing;
+      return false;
+    }
+
+    if (processingState == AudioProcessingState.loading ||
+        processingState == AudioProcessingState.buffering) {
+      buttonState.value = PlayButtonState.loading;
+      return false;
+    }
+
+    buttonState.value = PlayButtonState.paused;
     return false;
   }
 

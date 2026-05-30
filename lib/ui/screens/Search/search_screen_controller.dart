@@ -10,6 +10,7 @@ class SearchScreenController extends GetxController with ProcessLink {
   final musicServices = Get.find<MusicServices>();
   final suggestionList = [].obs;
   final historyQuerylist = [].obs;
+  final selectedSuggestionIndex = (-1).obs;
   late Box<dynamic> queryBox;
   final urlPasted = false.obs;
 
@@ -33,19 +34,62 @@ class SearchScreenController extends GetxController with ProcessLink {
     historyQuerylist.value = queryBox.values.toList().reversed.toList();
   }
 
+  List<String> get activeSuggestionList {
+    if (urlPasted.isTrue) {
+      return const [];
+    }
+
+    final isHistoryString = textInputController.text.isEmpty &&
+        suggestionList.isEmpty;
+    final list = isHistoryString ? historyQuerylist : suggestionList;
+    return list.cast<String>().toList();
+  }
+
+  String? get selectedSuggestionText {
+    final list = activeSuggestionList;
+    final index = selectedSuggestionIndex.value;
+    if (index < 0 || index >= list.length) {
+      return null;
+    }
+    return list[index];
+  }
+
+  void moveSuggestionSelection(int delta) {
+    final list = activeSuggestionList;
+    if (list.isEmpty) {
+      return;
+    }
+
+    final nextIndex = selectedSuggestionIndex.value + delta;
+    if (nextIndex < 0) {
+      selectedSuggestionIndex.value = list.length - 1;
+    } else if (nextIndex >= list.length) {
+      selectedSuggestionIndex.value = 0;
+    } else {
+      selectedSuggestionIndex.value = nextIndex;
+    }
+  }
+
+  void clearSuggestionSelection() {
+    selectedSuggestionIndex.value = -1;
+  }
+
   Future<void> onChanged(String text) async {
     if(text.contains("https://")){
       urlPasted.value = true; 
+      clearSuggestionSelection();
       return;
     }
     urlPasted.value = false;
     suggestionList.value = await musicServices.getSearchSuggestion(text);
+    clearSuggestionSelection();
   }
 
   Future<void> suggestionInput(String txt) async {
     textInputController.text = txt;
     textInputController.selection =
         TextSelection.collapsed(offset: textInputController.text.length);
+    clearSuggestionSelection();
     await onChanged(txt);
   }
 
@@ -68,6 +112,7 @@ class SearchScreenController extends GetxController with ProcessLink {
     urlPasted.value = false;
     textInputController.text = "";
     suggestionList.clear();
+    clearSuggestionSelection();
   }
 
   Future<void> removeQueryFromHistory(String txt) async {

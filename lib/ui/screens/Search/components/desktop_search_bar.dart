@@ -15,49 +15,69 @@ class DesktopSearchBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Shortcuts(
-          shortcuts: {
-            LogicalKeySet(LogicalKeyboardKey.space):
-                const DoNothingAndStopPropagationTextIntent()
+        Focus(
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent) {
+              return KeyEventResult.ignored;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              searchScreenController.moveSuggestionSelection(1);
+              return KeyEventResult.handled;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              searchScreenController.moveSuggestionSelection(-1);
+              return KeyEventResult.handled;
+            }
+
+            return KeyEventResult.ignored;
           },
-          child: SearchBar(
-            controller: searchScreenController.textInputController,
-            onTapOutside: (event) {},
-            onChanged: searchScreenController.onChanged,
-            onSubmitted: (val) {
-              if (val.contains("https://")) {
-                searchScreenController.filterLinks(Uri.parse(val));
-                searchScreenController.reset();
-                return;
-              }
-              Get.toNamed(ScreenNavigationSetup.searchResultScreen,
-                  id: ScreenNavigationSetup.id, arguments: val);
-              searchScreenController.addToHistryQueryList(val);
-              searchScreenController.focusNode.unfocus();
+          child: Shortcuts(
+            shortcuts: {
+              LogicalKeySet(LogicalKeyboardKey.space):
+                  const DoNothingAndStopPropagationTextIntent()
             },
-            focusNode: searchScreenController.focusNode,
-            backgroundColor: WidgetStatePropertyAll<Color>(
-                Theme.of(context).colorScheme.secondary),
-            hintText: "searchDes".tr,
-            leading: IconButton(
-                onPressed: () {
-                  if (searchScreenController.focusNode.hasFocus) {
-                    searchScreenController.focusNode.unfocus();
-                  }
-                },
-                icon: Obx(() => Icon(
-                    searchScreenController.isSearchBarInFocus.isTrue
-                        ? Icons.arrow_back
-                        : Icons.search))),
-            trailing: [
-              Obx(() => searchScreenController.isSearchBarInFocus.isTrue
-                  ? IconButton(
-                      onPressed: searchScreenController.reset,
-                      icon: const Icon(Icons.clear))
-                  : const SizedBox.shrink())
-            ],
-            padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-                EdgeInsets.only(left: 15, right: 15)),
+            child: SearchBar(
+              controller: searchScreenController.textInputController,
+              onTapOutside: (event) {},
+              onChanged: searchScreenController.onChanged,
+              onSubmitted: (val) {
+                final query = searchScreenController.selectedSuggestionText ?? val;
+                if (query.contains("https://")) {
+                  searchScreenController.filterLinks(Uri.parse(query));
+                  searchScreenController.reset();
+                  return;
+                }
+                Get.toNamed(ScreenNavigationSetup.searchResultScreen,
+                    id: ScreenNavigationSetup.id, arguments: query);
+                searchScreenController.addToHistryQueryList(query);
+                searchScreenController.focusNode.unfocus();
+              },
+              focusNode: searchScreenController.focusNode,
+              backgroundColor: WidgetStatePropertyAll<Color>(
+                  Theme.of(context).colorScheme.secondary),
+              hintText: "searchDes".tr,
+              leading: IconButton(
+                  onPressed: () {
+                    if (searchScreenController.focusNode.hasFocus) {
+                      searchScreenController.focusNode.unfocus();
+                    }
+                  },
+                  icon: Obx(() => Icon(
+                      searchScreenController.isSearchBarInFocus.isTrue
+                          ? Icons.arrow_back
+                          : Icons.search))),
+              trailing: [
+                Obx(() => searchScreenController.isSearchBarInFocus.isTrue
+                    ? IconButton(
+                        onPressed: searchScreenController.reset,
+                        icon: const Icon(Icons.clear))
+                    : const SizedBox.shrink())
+              ],
+              padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+                  EdgeInsets.only(left: 15, right: 15)),
+            ),
           ),
         ),
         Padding(
@@ -96,10 +116,13 @@ class DesktopSearchBar extends StatelessWidget {
                         ? ListView(
                             shrinkWrap: true,
                             padding: const EdgeInsets.all(5.0),
-                            children: listToShow.map((item) {
+                            children: listToShow.asMap().entries.map((entry) {
                               return SearchItem(
-                                  queryString: item,
-                                  isHistoryString: isHistoryString);
+                                  queryString: entry.value,
+                                  isHistoryString: isHistoryString,
+                                  isSelected: searchScreenController
+                                          .selectedSuggestionIndex.value ==
+                                      entry.key);
                             }).toList())
                         : const SizedBox.shrink();
               }),

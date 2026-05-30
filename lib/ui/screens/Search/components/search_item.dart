@@ -7,13 +7,20 @@ import '../../../navigator.dart';
 class SearchItem extends StatelessWidget {
   final String queryString;
   final bool isHistoryString;
+  final bool isSelected;
   const SearchItem(
-      {super.key, required this.queryString, required this.isHistoryString});
+      {super.key,
+      required this.queryString,
+      required this.isHistoryString,
+      this.isSelected = false});
 
   @override
   Widget build(BuildContext context) {
     final searchScreenController = Get.find<SearchScreenController>();
     return ListTile(
+      selected: isSelected,
+      selectedTileColor:
+          Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
       contentPadding: const EdgeInsets.only(left: 10, right: 20),
       onTap: () {
         Get.toNamed(ScreenNavigationSetup.searchResultScreen,

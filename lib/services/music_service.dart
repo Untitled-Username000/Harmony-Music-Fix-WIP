@@ -109,7 +109,7 @@ class MusicServices extends getx.GetxService {
   }
 
   Future<Response> _sendRequest(String action, Map<dynamic, dynamic> data,
-      {additionalParams = ""}) async {
+      {additionalParams = "", bool retryOnFailure = true}) async {
     //print("$baseUrl$action$fixedParms$additionalParams          data:$data");
     try {
       final response =
@@ -122,11 +122,21 @@ class MusicServices extends getx.GetxService {
       if (response.statusCode == 200) {
         return response;
       } else {
-        return _sendRequest(action, data, additionalParams: additionalParams);
+        if (!retryOnFailure) {
+          throw NetworkError();
+        }
+        await init();
+        return _sendRequest(action, data,
+            additionalParams: additionalParams, retryOnFailure: false);
       }
     } on DioException catch (e) {
       printINFO("Error $e");
-      throw NetworkError();
+      if (!retryOnFailure) {
+        throw NetworkError();
+      }
+      await init();
+      return _sendRequest(action, data,
+          additionalParams: additionalParams, retryOnFailure: false);
     }
   }
 
