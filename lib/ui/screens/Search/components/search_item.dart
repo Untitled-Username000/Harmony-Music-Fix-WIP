@@ -20,7 +20,7 @@ class SearchItem extends StatelessWidget {
     return ListTile(
       selected: isSelected,
       selectedTileColor:
-          Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+          Theme.of(context).colorScheme.primary.withOpacity(0.12),
       contentPadding: const EdgeInsets.only(left: 10, right: 20),
       onTap: () {
         Get.toNamed(ScreenNavigationSetup.searchResultScreen,
