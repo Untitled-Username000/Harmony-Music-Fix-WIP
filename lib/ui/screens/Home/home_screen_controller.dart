@@ -153,9 +153,15 @@ class HomeScreenController extends GetxController {
       if (quickPicks.value.songList.isEmpty) {
         final index = homeContentListMap
             .indexWhere((element) => element['title'] == "Quick picks");
-        final con = homeContentListMap.removeAt(index);
-        quickPicks.value = QuickPicks(List<MediaItem>.from(con["contents"]),
-            title: "Quick picks");
+        if (index != -1) {
+          final con = homeContentListMap.removeAt(index);
+          quickPicks.value = QuickPicks(List<MediaItem>.from(con["contents"]),
+              title: "Quick picks");
+        } else if (homeContentListMap.isNotEmpty) {
+          final con = homeContentListMap.first;
+          quickPicks.value = QuickPicks(List<MediaItem>.from(con["contents"]),
+              title: con['title'] ?? "Quick picks");
+        }
       }
 
       middleContent.value = _setContentList(middleContentTemp);
@@ -204,9 +210,11 @@ class HomeScreenController extends GetxController {
     QuickPicks? quickPicks_;
     if (val == 'QP') {
       final homeContentListMap = await _musicServices.getHome(limit: 3);
-      quickPicks_ = QuickPicks(
-          List<MediaItem>.from(homeContentListMap[0]["contents"]),
-          title: homeContentListMap[0]["title"]);
+      if (homeContentListMap.isNotEmpty) {
+        quickPicks_ = QuickPicks(
+            List<MediaItem>.from(homeContentListMap[0]["contents"]),
+            title: homeContentListMap[0]["title"]);
+      }
     } else if (val == "TMV" || val == 'TR') {
       try {
         final charts = await _musicServices.getCharts(val);

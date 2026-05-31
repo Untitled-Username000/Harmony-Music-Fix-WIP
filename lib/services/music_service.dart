@@ -680,9 +680,26 @@ class MusicServices extends getx.GetxService {
             ['artist', 'playlist', 'song', 'video', 'station'], type, category);
         if (filter == null) {
           for (var item in mixedItems) {
-            final itemType = item.runtimeType == MediaItem
-                ? (item.artist.split(",")[0]) + "s"
-                : "${item.runtimeType}s";
+            final resultType = item.extras?['resultType'];
+            final videoType = item.extras?['videoType'];
+            String itemType;
+
+            if (resultType == 'song' ||
+                videoType == 'MUSIC_VIDEO_TYPE_ATV' ||
+                item.runtimeType == MediaItem) {
+              itemType = 'Songs';
+            } else if (resultType == 'video') {
+              itemType = 'Videos';
+            } else if (item.runtimeType.toString() == 'Playlist') {
+              itemType = 'Playlists';
+            } else if (item.runtimeType.toString() == 'Album') {
+              itemType = 'Albums';
+            } else if (item.runtimeType.toString() == 'Artist') {
+              itemType = 'Artists';
+            } else {
+              itemType = "${item.runtimeType}s";
+            }
+
             if (searchResults.containsKey(itemType) &&
                 (searchResults[itemType]).length < 3) {
               (searchResults[itemType] as List).add(item);

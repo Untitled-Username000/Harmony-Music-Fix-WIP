@@ -5,6 +5,9 @@ import 'package:harmonymusic/ui/screens/Settings/settings_screen_controller.dart
 import 'package:ionicons/ionicons.dart';
 import 'package:widget_marquee/widget_marquee.dart';
 
+import '../../../models/playling_from.dart';
+import '../../../models/album.dart';
+import '../../navigator.dart';
 import '/ui/widgets/lyrics_dialog.dart';
 import '/ui/widgets/song_info_dialog.dart';
 import '/ui/player/player_controller.dart';
@@ -409,7 +412,37 @@ class MiniPlayer extends StatelessWidget {
                                           },
                                           icon: const Icon(Icons.queue_music),
                                         ),
-                                        if (size.width > 860)
+                                        if (size.width > 860) ...[
+                                          Obx(() {
+                                            final pFrom = playerController.playinfrom.value;
+                                            if (pFrom.id == null ||
+                                                (pFrom.type != PlaylingFromType.PLAYLIST &&
+                                                    pFrom.type != PlaylingFromType.ALBUM)) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Padding(
+                                              padding: const EdgeInsets.only(left: 10.0),
+                                              child: IconButton(
+                                                tooltip: pFrom.type == PlaylingFromType.PLAYLIST
+                                                    ? "Go to Playlist"
+                                                    : "Go to Album",
+                                                icon: Icon(pFrom.type == PlaylingFromType.PLAYLIST
+                                                    ? Icons.featured_play_list
+                                                    : Icons.album),
+                                                onPressed: () {
+                                                  if (pFrom.type == PlaylingFromType.PLAYLIST) {
+                                                    Get.toNamed(ScreenNavigationSetup.playlistScreen,
+                                                        id: ScreenNavigationSetup.id,
+                                                        arguments: [null, pFrom.id!]);
+                                                  } else {
+                                                    Get.toNamed(ScreenNavigationSetup.albumScreen,
+                                                        id: ScreenNavigationSetup.id,
+                                                        arguments: (null as Album?, pFrom.id!));
+                                                  }
+                                                },
+                                              ),
+                                            );
+                                          }),
                                           Padding(
                                             padding: const EdgeInsets.only(
                                                 left: 10.0),

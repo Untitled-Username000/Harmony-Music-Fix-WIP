@@ -318,6 +318,8 @@ class PlaylistScreen extends StatelessWidget {
                                                     playfrom: PlaylingFrom(
                                                         name: playlistController
                                                             .playlist.value.title,
+                                                        id: playlistController
+                                                            .playlist.value.playlistId,
                                                         type: PlaylingFromType
                                                             .PLAYLIST));
                                               },
@@ -371,6 +373,8 @@ class PlaylistScreen extends StatelessWidget {
                                                     playfrom: PlaylingFrom(
                                                         name: playlistController
                                                             .playlist.value.title,
+                                                        id: playlistController
+                                                            .playlist.value.playlistId,
                                                         type: PlaylingFromType
                                                             .PLAYLIST));
                                               },
@@ -700,6 +704,8 @@ class PlaylistScreen extends StatelessWidget {
                                         playfrom: PlaylingFrom(
                                             name: playlistController
                                                 .playlist.value.title,
+                                            id: playlistController
+                                                .playlist.value.playlistId,
                                             type: PlaylingFromType.PLAYLIST));
                                   },
                                   song: playlistController.songList[index - 3],

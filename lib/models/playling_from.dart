@@ -5,8 +5,9 @@ import 'package:get/get.dart';
 class PlaylingFrom {
   PlaylingFromType type;
   String name;
+  String? id;
 
-  PlaylingFrom({required this.type, this.name = ""});
+  PlaylingFrom({required this.type, this.name = "", this.id});
 
   get typeString {
     switch (type) {
