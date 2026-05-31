@@ -436,8 +436,8 @@ class MiniPlayer extends StatelessWidget {
                                                         arguments: [null, pFrom.id!]);
                                                   } else {
                                                     Get.toNamed(ScreenNavigationSetup.albumScreen,
-                                                        id: ScreenNavigationSetup.id,
-                                                        arguments: (null as Album?, pFrom.id!));
+                                                      id: ScreenNavigationSetup.id,
+                                                      arguments: [null, pFrom.id!]);
                                                   }
                                                 },
                                               ),
