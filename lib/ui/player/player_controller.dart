@@ -363,10 +363,11 @@ class PlayerController extends GetxController
   ///pushSongToPlaylist method clear previous song queue, plays the tapped song and push related
   ///songs into Queue
   Future<void> pushSongToQueue(MediaItem? mediaItem,
-      {String? playlistid, bool radio = false}) async {
+      {String? playlistid, bool radio = false, String? id}) async {
     /// update playing from value
     playinfrom.value = PlaylingFrom(
         type: PlaylingFromType.SELECTION,
+        id: id,
         name: radio ? "randomRadio".tr : "randomSelection".tr);
 
     /// set global radio mode flag

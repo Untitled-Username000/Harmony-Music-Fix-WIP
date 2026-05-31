@@ -241,6 +241,10 @@ class AlbumScreen extends StatelessWidget {
                                                                     .album
                                                                     .value
                                                                     .title,
+                                                            id: albumController
+                                                                .album
+                                                                .value
+                                                                .browseId,
                                                             type:
                                                                 PlaylingFromType
                                                                     .ALBUM));
@@ -452,6 +456,8 @@ class AlbumScreen extends StatelessWidget {
                                           playfrom: PlaylingFrom(
                                               name: albumController
                                                   .album.value.title,
+                                              id: albumController
+                                                  .album.value.browseId,
                                               type: PlaylingFromType.ALBUM));
                                     },
                                     song: albumController.songList[index - 3],

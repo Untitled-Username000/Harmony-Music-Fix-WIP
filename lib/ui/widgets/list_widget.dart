@@ -102,7 +102,8 @@ class ListWidget extends StatelessWidget with RemoveSongFromPlaylistMixin {
                   List<MediaItem>.from(items), index,
                   playfrom: PlaylingFrom(
                       type: PlaylingFromType.ARTIST,
-                      name: artist?.name ?? "........."))
+                      name: artist?.name ?? ".........",
+                      id: artist?.browseId))
               :
               // if playlist is not null then play from playlist else play from album
               playlist != null && album == null
@@ -111,8 +112,9 @@ class ListWidget extends StatelessWidget with RemoveSongFromPlaylistMixin {
                       playfrom: PlaylingFrom(
                         type: PlaylingFromType.PLAYLIST,
                         name: playlist.title,
+                        id: playlist.playlistId,
                       ))
-                  : playerController.pushSongToQueue(items[index] as MediaItem);
+                  : playerController.pushSongToQueue(items[index] as MediaItem, id: album?.browseId);
         },
       ),
     );

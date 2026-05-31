@@ -1,6 +1,8 @@
 <div align="center">
 
-# ❗**This repository is no longer maintained.**
+# ❗**This repository is "maintained" by AI SLOP, fixes are purely personal and I really don't care to learn how dart works.**
+
+It "might" be used as an ok template because it has an build workflow for windows (albeit broken due to numbering issue, it doesn't show latest build)
 
 </div>
 
