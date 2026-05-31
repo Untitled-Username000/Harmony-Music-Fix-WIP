@@ -478,6 +478,7 @@ class MiniPlayer extends StatelessWidget {
                                                   : Icons.timer_outlined),
                                             ),
                                           ),
+                                        ],
                                         const SizedBox(
                                           width: 10,
                                         ),
@@ -522,13 +523,15 @@ class MiniPlayer extends StatelessWidget {
                                             icon: const Icon(Icons.info,
                                                 size: 22),
                                           ),
+                                        ],
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          )
+                          ],
+                        )
                       ],
                     ),
                   ),
