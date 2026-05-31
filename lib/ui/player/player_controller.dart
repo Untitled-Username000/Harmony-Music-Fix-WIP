@@ -174,10 +174,11 @@ class PlayerController extends GetxController
   void _listenForChangesInPlayerState() {
     _audioHandler.playbackState.listen((playerState) {
       final isPlaying = playerState.playing;
-      if (_setButtonStateFromPlaybackState(playerState)) {
-        _audioHandler.seek(Duration.zero);
-        _audioHandler.pause();
-      }
+      // Update UI button state but do not force a seek/pause when the
+      // processing state is `completed`. The `AudioHandler` is
+      // responsible for advancing to the next track; forcing a pause
+      // here can interfere with that flow on Windows.
+      _setButtonStateFromPlaybackState(playerState);
 
       final settings = Get.find<SettingsScreenController>();
       // Keep the screen awake whenever playback is active and the setting is enabled.
